@@ -1,0 +1,29 @@
+# ==============================================================================
+# PyTorch Deep Learning & Machine Learning Requirements
+# OpenArm Bimanual 16-DOF ACT (Action Chunking with Transformers) + RGB-D
+# ==============================================================================
+
+# Core Deep Learning
+torch>=2.0.0
+torchvision>=0.15.0
+timm>=1.0.0
+
+# Scientific Computing & Data Processing
+numpy>=1.22.0
+scipy>=1.10.0
+h5py>=3.8.0
+opencv-python>=4.7.0
+Pillow>=9.5.0
+
+# Training Monitoring & Logging
+tensorboard>=2.12.0
+wandb>=0.15.0
+matplotlib>=3.7.0
+tqdm>=4.65.0
+pyyaml>=6.0
+
+# ONNX Export & Edge Deployment
+onnx>=1.17.0
+onnxruntime>=1.17.0
+onnxscript>=0.7.0
+

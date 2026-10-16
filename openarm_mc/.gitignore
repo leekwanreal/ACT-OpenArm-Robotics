@@ -1,0 +1,64 @@
+# colcon's three output trees. Everything here is produced by `colcon build`.
+/build/
+/install/
+/log/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+
+# Datasets. Episodes are large binaries that belong beside the robot, not in
+# the history: ~20 MB per second of recording. The dashboard writes them to
+# dataset/<day>/ in this workspace.
+*.hdf5
+*.partial.hdf5
+*.hdf5.compressing
+/dataset/
+/datasets/
+/data_set/
+
+# Model checkpoints and their exports: large, and specific to each training
+# run. checkpoint/pth/ holds the training .pth files, checkpoint/onnx/ what
+# utils/export_onnx.py makes of them -- openarm_act runs the newest .onnx
+# there. The second line keeps the old location out of the history too.
+/checkpoint/
+/src/openarm_act/checkpoint/
+
+# Released policies: what openarm_smolvla's export_policy.py writes, served
+# by its scripts/serve.py (a SmolVLA release is ~1.2 GB of weights, plus the
+# zip it arrives in). They belong beside the GPU machine that serves them,
+# not in the history; metadata.json inside each one names the run and step
+# it came from.
+/releases/
+
+# Which RealSense is which camera, by serial: ./setup_camera.sh writes it for
+# the machine it runs on.
+/cameras.yaml
+
+# MuJoCo writes this next to whatever started it.
+MUJOCO_LOG.TXT
+
+# Node, for the openarm_mujoco web page's tests
+node_modules/
+
+# Editors and desktops
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+
+# Browser automation artefacts
+.playwright-mcp/
+
+# Local agent rules & hooks
+/AGENTS.md
+/agents.md
+/.agents/
+/.githooks/
+/GUIDE.md
+/guide.md

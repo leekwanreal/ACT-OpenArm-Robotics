@@ -1,0 +1,7 @@
+[submodule "src/openarm_can"]
+	path = src/openarm_can
+	url = https://github.com/enactic/openarm_can.git
+[submodule "src/realsense-ros"]
+	path = src/realsense-ros
+	url = https://github.com/realsenseai/realsense-ros.git
+	branch = ros2-master

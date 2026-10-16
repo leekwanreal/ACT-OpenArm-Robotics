@@ -1,0 +1,99 @@
+# SmolVLA policy inference: openarm_act's node, asking an openarm_smolvla
+# server for each chunk. Every parameter openarm_act has works here too
+# (src/openarm_act/config/act.yaml explains each one); the ones below are
+# those that differ, or that matter most for a model behind a network.
+#
+# The server (`checkpoint`) is a launch argument, not set here: it changes
+# with every run. There is no prompt: the model is trained on one task, and
+# the server gives it that one.
+
+/openarm_smolvla:
+  ros__parameters:
+    policy: openarm_smolvla.policy:SmolVLAPolicy
+    # Seconds to reach the server, and that one chunk may take before the
+    # server counts as gone (the next inference reconnects). On a GPU a
+    # chunk takes ~0.1 s; served from a CPU, 3-7 s (an i7-10850H, 10 flow
+    # steps), so 5 s would fail one Generate in two. Only a hung server
+    # waits this long, and Stop works meanwhile.
+    connect_timeout: 10.0
+    request_timeout: 15.0
+    # Clip the predicted targets to OpenArm V1's joint limits.
+    clip_to_limits: true
+
+    # What the server's model was trained on: openarm_ui's recorder at
+    # 640x480. The node refuses a server whose model reports another size.
+    image_width: 640
+    image_height: 480
+    depth_scale: 0.001
+    depth_min_mm: 200
+    depth_max_mm: 1200
+
+    # The cameras are the server model's (its metadata: chest, or chest and
+    # front), each <camera_prefix>/<name>/{rgb,depth} from openarm_camera.
+    camera_prefix: /openarm/camera
+    state_topic: /openarm/joint_states
+    left_gripper_topic: /openarm/left_gripper
+    right_gripper_topic: /openarm/right_gripper
+    # The proxy's `smolvla` source (openarm_command_proxy/config/sources.yaml).
+    output_prefix: /openarm/smolvla
+    # Its own, so the dashboard's ACT arrows are never this model's.
+    trajectory_topic: /openarm/smolvla/trajectory
+
+    # One action per step at the dataset's 50 Hz. A chunk is a second; a
+    # new one every half second (query_period 25 steps), as openarm_smolvla
+    # suggests, leaves the server and the network time to spare. The node
+    # asks earlier when the chunks are about to run out.
+    control_rate: 50.0
+    query_period: 25
+    temporal_ensemble: true
+    ensemble_k: 0.01
+    ensemble_weighting: newest
+    # async: the arm steps at 50 Hz on the chunks while the next is asked
+    # for beside it, whatever the round trip. sync would move the arm one
+    # step per round trip.
+    loop_mode: async
+    vel_scale: 1.0
+    # The model is trained on the measured joints (action_source: qpos), so
+    # for a grasp it predicts the stroke the fingers stopped at on the
+    # object -- ~24 mm on the green box -- while teleop commanded 0. Sent as
+    # is, the gripper reaches the box and squeezes nothing. A predicted
+    # stroke under gripper_close_below is a grasp, commanded to
+    # gripper_close_to as in the demonstrations; the gripper's effort limit
+    # (gains.yaml) is what holds the box. Open is 43 mm. 0 turns it off.
+    gripper_close_below: 0.035
+    gripper_close_to: 0.0
+    # A frame older than this counts as missing, and camera_fallback takes
+    # over. The preprocessor feeds /openarm/camera/* at ~20 Hz (50 ms), but the
+    # age this node observes drifts to 0.1-0.25 s under load: rclpy spends
+    # real time on a 921 kB RGB message, and the control loop shares the
+    # executor with it. 0.25 leaves no margin -- a busy moment silently
+    # swaps the scene for camera_fallback -- so allow twice the worst age
+    # measured. Raising it further is not free: the policy then acts on a
+    # staler scene, and at 50 Hz the arm covers ground in that time. Watch
+    # `camera` in the status: "mock" means the model is driving blind, on a
+    # gray frame at 600 mm, whatever the arrows on the dashboard show.
+    max_obs_age: 0.5
+    camera_fallback: mock
+
+    running: false
+    idle_output: true
+    proxy_node: /openarm_command_proxy
+    plan_max_age: 30.0
+    plan_max_drift: 0.05
+    plan_max_start_jump: 0.15
+    mode: preview
+    warmup_duration: 1.5
+    # Zero with the grippers open, as the recorded episodes start.
+    reset_pose: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.043,
+                 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.043]
+    reset_speed: 0.5
+    warmup_threshold: 0.03
+    max_start_jump: 1.0
+    execute_timeout: 30.0
+    stop_delta_rad: 0.008
+    stop_home_dist: 0.15
+    stop_duration: 1.0
+    home_on_finish: true
+    finish_pose: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    finish_duration: 2.0

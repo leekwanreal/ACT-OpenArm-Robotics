@@ -1,0 +1,37 @@
+# Which sources may drive OpenArm, and where each one publishes.
+#
+# Adding a source is one line under `sources`. It then publishes on
+#   <topic_prefix>/<name>/joint_commands   Float64MultiArray, 14 values
+#                                          (left j1..j7 then right j1..j7)
+#   <topic_prefix>/<name>/left_gripper     Float64MultiArray, data[0]
+#   <topic_prefix>/<name>/right_gripper    Float64MultiArray, data[0]
+# and nothing else has to change.
+#
+# A source that already publishes somewhere else, or that has no gripper of
+# its own, names the odd topic under `topics` instead. See the commented
+# example at the bottom.
+#
+# `active_source` is deliberately not set here: it is the runtime choice, made
+# with the launch argument or `ros2 param set`, not part of the topology.
+
+/openarm_command_proxy:
+  ros__parameters:
+    sources:
+      - ui        # the dashboard
+      - teleop    # VR / leader arm
+      - act       # the learned policy (openarm_act)
+      - smolvla   # SmolVLA, served by openarm_smolvla
+
+    topic_prefix: /openarm
+    command_topic: /openarm/joint_commands
+
+    # Seconds between status lines; 0 silences them.
+    status_period: 5.0
+
+    # Per-source topic overrides. Anything left out follows the pattern above.
+    #
+    # topics:
+    #   act:
+    #     joint_commands: /act/inference/joint_commands
+    #   ui:
+    #     right_gripper: /openarm/ui/gripper   # one gripper for both hands

@@ -1,0 +1,7 @@
+{
+  "default": "scene.xml",
+  "scenes": [
+    "scene.xml",
+    "openarm_bimanual.xml"
+  ]
+}

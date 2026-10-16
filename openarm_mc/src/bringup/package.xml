@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>bringup</name>
+  <version>0.1.0</version>
+  <description>Launch files and configuration to bring up the OpenArm system.</description>
+  <maintainer email="nguyentoan10601@gmail.com">nguyenton</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+
+  <!-- One per subsystem in launch/bringup.launch.py -->
+  <exec_depend>realsense2_camera</exec_depend>
+  <exec_depend>openarm_camera</exec_depend>
+  <exec_depend>openarm_controller</exec_depend>
+  <exec_depend>openarm_command_proxy</exec_depend>
+  <exec_depend>openarm_ui</exec_depend>
+  <exec_depend>openarm_mujoco</exec_depend>
+  <exec_depend>openarm_act</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

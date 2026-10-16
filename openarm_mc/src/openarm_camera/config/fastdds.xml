@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Fast DDS (Jazzy's default RMW) for OpenArm's camera frames. Its default
+  shared-memory segment is 0.5 MB, smaller than one 640x480 RGB8 frame
+  (921 kB), so every colour frame went over UDP instead, where the kernel's
+  208 kB socket buffer (net.core.rmem_max) dropped most of them: the
+  drivers published 30 Hz, the nodes got 6-16 Hz, and the preprocessors
+  kept pausing for want of an RGB-D pair. A 32 MB segment carries them in
+  shared memory; UDP stays for other hosts. openarm_camera's launch_env
+  points FASTRTPS_DEFAULT_PROFILES_FILE here for every node a launch starts.
+-->
+<profiles xmlns="http://www.eprosima.com/XMLSchemas/fastRTPS_Profiles">
+  <transport_descriptors>
+    <transport_descriptor>
+      <transport_id>shm_frames</transport_id>
+      <type>SHM</type>
+      <segment_size>33554432</segment_size>
+    </transport_descriptor>
+    <transport_descriptor>
+      <transport_id>udp</transport_id>
+      <type>UDPv4</type>
+    </transport_descriptor>
+  </transport_descriptors>
+  <participant profile_name="openarm" is_default_profile="true">
+    <rtps>
+      <userTransports>
+        <transport_id>shm_frames</transport_id>
+        <transport_id>udp</transport_id>
+      </userTransports>
+      <useBuiltinTransports>false</useBuiltinTransports>
+    </rtps>
+  </participant>
+</profiles>

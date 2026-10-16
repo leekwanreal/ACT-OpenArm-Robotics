@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>openarm_mujoco</name>
+  <version>2.3.0</version>
+  <description>MuJoCo description files (MJCF) for OpenArm, and a node that serves them to a CAN bus as the robot's motors.</description>
+  <maintainer email="openarm_dev@enactic.ai">Enactic, Inc.</maintainer>
+  <license>Apache-2.0</license>
+
+  <url type="repository">https://github.com/enactic/openarm_mujoco.git</url>
+  <url type="bugtracker">https://github.com/enactic/openarm_mujoco/issues</url>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>rcl_interfaces</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+  <!-- mujoco is not packaged for rosdep; install it from pip -->
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

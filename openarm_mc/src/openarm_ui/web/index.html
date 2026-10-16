@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<!--
+  Copyright 2026 Enactic, Inc.
+  Licensed under the Apache License, Version 2.0.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OpenArm — Robotics Control Center</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css" />
+    <script>
+      // Pick the theme before first paint, so a dark page does not flash
+      // light while the modules load. theme.js takes over from here.
+      try {
+        const saved = localStorage.getItem("openarm.theme");
+        if (saved === "light" || saved === "dark") {
+          document.documentElement.dataset.theme = saved;
+        }
+      } catch (error) { /* follow the system */ }
+    </script>
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <h1>OpenArm</h1>
+        <span class="version-badge">WORKSPACE</span>
+      </div>
+
+      <div class="header-right">
+        <div id="status-strip">
+          <span class="chip" id="chip-link">connecting…</span>
+          <span class="chip" id="chip-mode">mode —</span>
+          <span class="chip" id="chip-bus">bus —</span>
+          <span class="chip" id="chip-rate">0 Hz</span>
+        </div>
+        <button id="btn-theme" class="theme-toggle" title="Switch theme">Dark</button>
+      </div>
+    </header>
+
+    <main>
+      <!-- 3D Viewport Section -->
+      <section id="viewport-pane">
+        <div id="viewport"></div>
+        <div id="viewport-tools">
+          <button data-view="front">Front</button>
+          <button data-view="left">Left</button>
+          <button data-view="right">Right</button>
+          <button data-view="top">Top</button>
+          <button data-view="reset" class="btn-reset">Reset</button>
+          <label class="toggle">
+            <input type="checkbox" id="show-planned" checked />
+            <span>Planned</span>
+          </label>
+        </div>
+        <div id="goal-tools" class="viewport-bar">
+          <span class="bar-label" title="Drag the gizmo at a gripper tip: inverse kinematics poses the plan to reach it">Goal</span>
+          <button data-goal-arm="left">Left</button>
+          <button data-goal-arm="right">Right</button>
+          <button data-goal-arm="" class="active">Off</button>
+          <span class="bar-sep"></span>
+          <button data-goal-mode="translate" class="active" title="Arrows: move the tip">Move</button>
+          <button data-goal-mode="rotate" title="Rings: turn the tip">Rotate</button>
+          <span class="bar-sep"></span>
+          <button id="goal-plan" class="btn-reset" title="A trajectory from the robot to the plan, for ACT to draw and run">Plan</button>
+          <span id="goal-status" class="goal-status"></span>
+        </div>
+        <div id="legend">
+          <span class="legend-item"><i class="swatch current"></i>Current</span>
+          <span class="legend-item"><i class="swatch planned"></i>Planned</span>
+          <span class="legend-item" id="legend-traj" hidden><i class="swatch traj-left"></i><i class="swatch traj-right"></i>Trajectory <i class="swatch axis-x"></i><i class="swatch axis-y"></i><i class="swatch axis-z"></i>x y z</span>
+        </div>
+      </section>
+
+      <!-- Sidebar Controls -->
+      <aside id="side">
+        <!-- Robot Hardware / Sim Card -->
+        <div class="card">
+          <div class="card-header">
+            <h2>Robot</h2>
+            <span class="card-sub">Hardware & Bus</span>
+          </div>
+          <div id="link-banner" class="link-banner idle" role="status" aria-live="polite">
+            <span class="link-dot" aria-hidden="true"></span>
+            <span class="link-target" id="link-target">—</span>
+            <span class="link-state" id="link-state">Not connected</span>
+            <span class="link-detail" id="link-detail"></span>
+          </div>
+          <div class="segmented-control" id="mode-buttons" role="group" aria-label="Mode">
+            <button data-mode="real" aria-pressed="false">Real</button>
+            <button data-mode="sim" aria-pressed="false">Sim</button>
+          </div>
+          <div class="action-row">
+            <button id="btn-connect" class="on">Connect</button>
+          </div>
+          <p class="hint" id="mode-hint">
+            Pick a mode, then connect. <code>Real</code> drives the motors on
+            <code>can0</code>/<code>can1</code>; <code>Sim</code> drives MuJoCo on
+            <code>vcan0</code>. Switching restarts the controller safely.
+          </p>
+          <dl id="robot-facts">
+            <dt>Mode</dt><dd id="fact-mode">—</dd>
+            <dt>Motors</dt><dd id="fact-motors">—</dd>
+            <dt>Interfaces</dt><dd id="fact-bus">—</dd>
+            <dt>joint_states</dt><dd id="fact-state">—</dd>
+          </dl>
+        </div>
+
+        <!-- Command Source Card -->
+        <div class="card">
+          <div class="card-header">
+            <h2>Command Source</h2>
+            <span class="card-sub">Active Multiplexer</span>
+          </div>
+          <div class="segmented-control source-group" id="source-buttons"></div>
+          <p class="hint">
+            Active source for command proxy. Sliders publish as <code>ui</code>;
+            choose <code>ui</code> to drive from this page. The panel under the
+            3D view follows the source: sliders, teleop, ACT or SmolVLA.
+          </p>
+          <div class="zero-pose" id="zero-pose">
+            <button id="btn-zero" class="zero-pose-btn" disabled
+                    title="Ease every arm joint to 0 from wherever the arm is; the grippers stay as they are">Zero pose</button>
+            <div class="zero-pose-info">
+              <span class="zero-pose-text" id="zero-text">Every arm joint to 0, grippers kept.</span>
+              <span class="zero-pose-bar" aria-hidden="true"><i id="zero-bar"></i></span>
+            </div>
+          </div>
+        </div>
+
+
+        <!-- Camera Card: lives here with the sliders, and moves under the 3D
+             view with teleop and the policies (panel-workspace.js). -->
+        <div id="camera-home">
+        <div class="card card-camera" id="camera-card">
+          <div class="card-header">
+            <h2>Cameras</h2>
+            <button id="btn-camera-switch" class="ghost camera-switch" title="Chest showing the front camera (or the other way round)? Swap the two: at once, and in cameras.yaml for the next start (./setup_camera.sh switch does the same)">&#8644; Switch chest / front</button>
+          </div>
+          <div class="camera-controls">
+            <div class="segmented-control camera-cams" id="camera-cams" role="group" aria-label="Camera">
+              <button data-cams="chest" title="On the robot's chest">Chest</button>
+              <button data-cams="front" title="Across the table, looking back at the robot">Front</button>
+              <button data-cams="both">Both</button>
+            </div>
+            <button id="btn-camera" class="camera-toggle on" aria-pressed="false">Turn on</button>
+            <div class="segmented-control camera-streams" id="camera-streams" role="group" aria-label="Camera stream">
+              <button data-streams="rgb">RGB</button>
+              <button data-streams="depth">Depth</button>
+              <button data-streams="both">Both</button>
+            </div>
+          </div>
+          <!-- A figure per camera and stream (panel-camera.js). -->
+          <div id="camera-views" class="camera-views off"></div>
+        </div>
+        </div>
+      </aside>
+
+      <!-- Joints and Telemetry Section -->
+      <section id="joints-pane" data-workspace="ui">
+        <!-- The workspace follows the command source (panel-workspace.js):
+             ui      the sliders
+             teleop  the camera and the joint state, read-only
+             act     the camera and the ACT policy's controls
+             smolvla the camera and the SmolVLA policy's controls
+             none keeps whichever was last shown. -->
+        <div id="workspace" data-workspace="ui">
+        <!-- Joint Pose Planning -->
+        <div class="card joint-control-card" data-for="ui">
+          <div class="joint-pane-header">
+            <div class="segmented-control mini-tabs">
+              <button class="tab active" data-arm="left">Left Arm</button>
+              <button class="tab" data-arm="right">Right Arm</button>
+            </div>
+            <div class="toolbar">
+              <button id="btn-unlock-all" class="ghost" title="Unlock all joints for manual posing">Unlock all</button>
+              <button id="btn-lock-all" class="ghost" title="Lock all joints">Lock all</button>
+              <button id="btn-home" class="ghost" title="Stage default home pose">Home</button>
+              <button id="btn-sync" class="ghost" title="Sync planned sliders to current robot state">Sync</button>
+              <button id="btn-execute" class="btn-execute primary">Execute</button>
+            </div>
+          </div>
+
+          <p class="hint" id="plan-hint">
+            Sliders set planned pose (ghost arm). Nothing moves until <strong>Execute</strong>.
+          </p>
+          <div id="sliders"></div>
+        </div>
+
+        <!-- The camera card moves in here with teleop and the policies. -->
+        <div id="workspace-camera" class="workspace-camera" data-for="teleop act smolvla"></div>
+
+        <!-- Episode Recording: beside the camera, above the joint state.
+             Shown with teleop, or while an episode runs (main.js), so it has
+             no data-for: an episode stays stoppable whatever the source. -->
+        <div class="card card-recording" id="recording-card" hidden>
+          <div class="card-header">
+            <h2>Recording</h2>
+            <span class="card-sub" title="qpos, action, the teleop commands as joint_commands, and each camera's RGB-D">ACT Dataset (HDF5) + commands</span>
+          </div>
+          <div class="record-cameras" id="record-cameras" title="The cameras an episode records; a virtual one records black frames">
+            <span class="record-cameras-label">Cameras</span>
+            <label><input type="checkbox" value="chest" /> chest <em class="record-source" data-source="chest"></em></label>
+            <label><input type="checkbox" value="front" /> front <em class="record-source" data-source="front"></em></label>
+          </div>
+          <div class="record-row">
+            <button id="btn-record" class="record">Start recording</button>
+            <span class="elapsed" id="record-elapsed">00:00</span>
+          </div>
+          <p class="hint" id="record-status">Idle.</p>
+        </div>
+
+        <!-- Teleop: where every joint is, against its range. -->
+        <div class="card card-jointstate" id="jointstate-card" data-for="teleop">
+          <div class="card-header">
+            <h2>Joint State</h2>
+            <span class="card-sub" id="jointstate-sub">measured</span>
+          </div>
+          <div class="jointstate-arms" id="jointstate"></div>
+        </div>
+
+        <!-- ACT: the policy's controls. -->
+        <div class="card card-act" id="act-card" data-for="act">
+          <div class="card-header">
+            <h2>ACT Policy</h2>
+            <span class="act-state bad" id="act-state">not running</span>
+          </div>
+          <div class="act-model-pick">
+            <select id="act-model-select" title="The models under checkpoint/onnx/: pick one to load it (only while nothing runs)" disabled>
+              <option value="">no models</option>
+            </select>
+            <button id="btn-act-load" title="Pick an .onnx or a .pth on this computer: a .pth is exported to .onnx first; either is kept under checkpoint/ and loaded">Load…</button>
+            <input type="file" id="act-model-file" accept=".onnx,.pth" hidden />
+          </div>
+          <div class="act-import" id="act-import" hidden>
+            <span class="act-import-text" id="act-import-text"></span>
+            <span class="act-import-bar" id="act-import-bar" aria-hidden="true"><i></i></span>
+          </div>
+          <dl class="act-facts">
+            <dt>Model</dt><dd id="act-model">—</dd>
+            <dt>Inference</dt><dd id="act-latency">—</dd>
+            <dt>Run</dt><dd id="act-run">—</dd>
+          </dl>
+          <label class="toggle act-show">
+            <input type="checkbox" id="act-show" checked />
+            <span>Show trajectory <i class="swatch traj-left"></i><i class="swatch traj-right"></i></span>
+          </label>
+
+          <div class="act-sections">
+            <section>
+              <h3 class="act-section">Run the policy</h3>
+              <div class="act-params">
+                <label title="infer_robot --vel_scale: per-joint speed and acceleration limits, scaled">
+                  speed <input type="number" id="act-vel-scale" min="0.1" max="2" step="0.1" value="1.0" />
+                </label>
+                <label title="infer_robot --ensemble_m: chunk weights exp(-m * age), the newest heaviest">
+                  ensemble m <input type="number" id="act-ensemble-m" min="0" max="1" step="0.01" value="0.01" />
+                </label>
+                <label title="execute_timeout: Execute stops by itself after this many seconds, and eases the arm to zero; 0 runs until it is back home or Stop">
+                  time <input type="number" id="act-execute-timeout" min="0" max="600" step="1" value="30" /> s
+                </label>
+                <label title="async: the arm steps at 50 Hz on the newest chunks while the model infers; sync: one inference, one step, as infer_robot.py">
+                  loop
+                  <select id="act-loop-mode">
+                    <option value="async">async</option>
+                    <option value="sync">sync</option>
+                  </select>
+                </label>
+              </div>
+              <div class="action-row">
+                <button id="btn-act-start" class="primary" disabled>Start</button>
+                <button id="btn-act-run-policy" class="on" disabled>Execute</button>
+              </div>
+            </section>
+
+            <section>
+              <h3 class="act-section">One chunk</h3>
+              <button id="btn-act-generate" class="act-activate" disabled>Generate trajectory</button>
+              <div class="action-row">
+                <button id="btn-act-execute" class="on" disabled>Run trajectory</button>
+                <button id="btn-act-reset" disabled title="Ease the arm to zero with the grippers open, ready for the policy">Reset to zero</button>
+              </div>
+            </section>
+          </div>
+
+          <div class="action-row">
+            <button id="btn-act-stop" class="off" disabled>Stop</button>
+          </div>
+          <details class="act-help">
+            <summary>How it runs</summary>
+            <p class="hint">
+              <strong>Start</strong> runs the model continuously, as
+              infer_robot.py: every step takes the first action of the chunks,
+              the newest weighing most, and the arrows follow the newest chunk.
+              Nothing moves until <strong>Execute</strong>; it ends by itself
+              back home (or after <strong>time</strong> seconds; 0 for no
+              limit) and eases the arm to zero.
+              <strong>Generate trajectory</strong> infers once and
+              <strong>Run trajectory</strong> plays those 50 steps once;
+              <strong>Reset to zero</strong> eases the arm to zero, grippers
+              open. <strong>Stop</strong> holds the arm where it is.
+              The list swaps the model while nothing runs;
+              <strong>Load…</strong> brings a new one: an .onnx is kept under
+              <code>checkpoint/onnx/</code>, a .pth under
+              <code>checkpoint/pth/</code> and exported to .onnx first.
+            </p>
+          </details>
+        </div>
+
+        <!-- SmolVLA: the same controls, for openarm_smolvla. Its model is
+             what the server serves, trained on one task: no prompt. -->
+        <div class="card card-act" id="smolvla-card" data-for="smolvla">
+          <div class="card-header">
+            <h2>SmolVLA Policy</h2>
+            <span class="act-state bad" id="smolvla-state">not running</span>
+          </div>
+          <dl class="act-facts">
+            <dt title="What the model was trained on; the server gives it this, every time">Task</dt><dd id="smolvla-task">—</dd>
+            <dt>Server</dt><dd id="smolvla-server">—</dd>
+            <dt>Model</dt><dd id="smolvla-model">—</dd>
+            <dt>Inference</dt><dd id="smolvla-latency">—</dd>
+            <dt>Run</dt><dd id="smolvla-run">—</dd>
+          </dl>
+          <label class="toggle act-show">
+            <input type="checkbox" id="smolvla-show" checked />
+            <span>Show trajectory <i class="swatch traj-left"></i><i class="swatch traj-right"></i></span>
+          </label>
+
+          <div class="act-sections">
+            <section>
+              <h3 class="act-section">Run the policy</h3>
+              <div class="act-params">
+                <label title="per-joint speed and acceleration limits, scaled">
+                  speed <input type="number" id="smolvla-vel-scale" min="0.1" max="2" step="0.1" value="1.0" />
+                </label>
+                <label title="chunk weights exp(-m * age), the newest heaviest">
+                  ensemble m <input type="number" id="smolvla-ensemble-m" min="0" max="1" step="0.01" value="0.01" />
+                </label>
+                <label title="execute_timeout: Execute stops by itself after this many seconds, and eases the arm to zero; 0 runs until it is back home or Stop">
+                  time <input type="number" id="smolvla-execute-timeout" min="0" max="600" step="1" value="30" /> s
+                </label>
+                <label title="async: the arm steps at 50 Hz on the newest chunks while the server is asked for the next; sync: one round trip, one step">
+                  loop
+                  <select id="smolvla-loop-mode">
+                    <option value="async">async</option>
+                    <option value="sync">sync</option>
+                  </select>
+                </label>
+              </div>
+              <div class="action-row">
+                <button id="btn-smolvla-start" class="primary" disabled>Start</button>
+                <button id="btn-smolvla-run-policy" class="on" disabled>Execute</button>
+              </div>
+            </section>
+
+            <section>
+              <h3 class="act-section">One chunk</h3>
+              <button id="btn-smolvla-generate" class="act-activate" disabled>Generate trajectory</button>
+              <div class="action-row">
+                <button id="btn-smolvla-execute" class="on" disabled>Run trajectory</button>
+                <button id="btn-smolvla-reset" disabled title="Ease the arm to zero with the grippers open, ready for the policy">Reset to zero</button>
+              </div>
+            </section>
+          </div>
+
+          <div class="action-row">
+            <button id="btn-smolvla-stop" class="off" disabled>Stop</button>
+          </div>
+          <details class="act-help">
+            <summary>How it runs</summary>
+            <p class="hint">
+              SmolVLA runs on a GPU machine (openarm_smolvla's
+              <code>scripts/serve.py</code>); openarm_smolvla asks it for a
+              chunk every half second. <strong>Start</strong> runs it
+              continuously while nothing moves, the arrows following the
+              newest chunk; <strong>Execute</strong> lets it drive until it is
+              back home, <strong>time</strong> runs out, or
+              <strong>Stop</strong>. <strong>Generate trajectory</strong> asks
+              once and <strong>Run trajectory</strong> plays those 50 steps
+              once. There is no prompt: the model is trained on one task
+              (<strong>Task</strong>), which the server gives it.
+            </p>
+          </details>
+        </div>
+        </div>
+
+        <!-- Telemetry & Gains -->
+        <div class="card telemetry-card">
+          <div class="pane-tabs-header">
+            <div class="segmented-control mini-tabs">
+              <button class="tab pane active" data-pane="telemetry">Telemetry</button>
+              <button class="tab pane" data-pane="gains">PD Gains</button>
+            </div>
+            <label class="profile-pick" id="profile-pick">
+              <span>Profile:</span>
+              <select id="gain-profile" title="PD set the motors run with"></select>
+            </label>
+          </div>
+
+          <div class="table-container">
+            <table id="telemetry">
+              <thead>
+                <tr><th>Joint</th><th>Position (rad)</th><th>Velocity</th><th>Effort (Nm)</th></tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <div id="gains-pane" hidden>
+            <div class="interp-pick">
+              <label title="How commands become the 400 Hz setpoint and velocity the MIT PD tracks">
+                Interpolator
+                <select id="interp-kind">
+                  <option value="quintic">quintic (default)</option>
+                  <option value="filter4">4th-order filter</option>
+                </select>
+              </label>
+              <label id="interp-w-label" title="The filter's four poles at -w: a smooth stream is followed ~4/w s behind">
+                w <input type="number" id="interp-w" min="1" max="100" step="1" value="30" /> rad/s
+              </label>
+            </div>
+            <p class="hint" id="gains-hint"></p>
+            <div class="table-container">
+              <table id="gains-table">
+                <thead>
+                  <tr><th>Joint</th><th>Motor</th><th>Kp</th><th>Kd</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <div id="toast"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/TransformControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/ColladaLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+    <script src="vendor/urdf-loader/URDFLoader.js"></script>
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>

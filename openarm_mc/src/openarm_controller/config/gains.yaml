@@ -1,0 +1,236 @@
+# PD gains, per control profile and per joint.
+#
+# A profile is a set of gains for one way of driving the arm. Switch between
+# them with
+#
+#   ros2 param set /openarm_controller active_profile teleop
+#
+# and every joint takes that profile's numbers at once. Adding a profile means
+# a name in `profiles` and a block under `gains`.
+#
+# Within a profile the gains are per joint, because a DM8009 carrying a
+# shoulder and a DM4310 on a wrist want nothing like the same numbers.
+#
+#   Arm joints, MIT impedance:      kp 0..500, kd 0..5
+#   Grippers, position-force:       speed 0..655 rad/s, effort 0..1
+#     (effort is a fraction of the motor's current limit: low holds, high crushes)
+#
+# All of these are writable while the node runs, so this file is the starting
+# point, not the last word.
+
+/openarm_controller:
+  ros__parameters:
+    profiles: [default, teleop, act, act_tuned]
+    active_profile: act_tuned
+
+    gains:
+      # openarm_can's DEFAULT_GAINS (sim/dashboard_server.py), verbatim.
+    #   DM8009 shoulders carry the most gravity, so they get the firmest pair.
+      default:
+        left_j1:          # DM8009
+          kp: 75.0
+          kd: 2.8
+        left_j2:          # DM8009
+          kp: 75.0
+          kd: 2.8
+        left_j3:          # DM4340
+          kp: 50.0
+          kd: 2.0
+        left_j4:          # DM4340
+          kp: 50.0
+          kd: 2.0
+        left_j5:          # DM4310
+          kp: 30.0
+          kd: 1.0
+        left_j6:          # DM4310
+          kp: 30.0
+          kd: 1.0
+        left_j7:          # DM4310
+          kp: 30.0
+          kd: 1.0
+        left_gripper:     # position-force
+          speed: 10.0
+          effort: 0.15
+        right_j1:         # DM8009
+          kp: 75.0
+          kd: 2.8
+        right_j2:         # DM8009
+          kp: 75.0
+          kd: 2.8
+        right_j3:         # DM4340
+          kp: 50.0
+          kd: 2.0
+        right_j4:         # DM4340
+          kp: 50.0
+          kd: 2.0
+        right_j5:         # DM4310
+          kp: 30.0
+          kd: 1.0
+        right_j6:         # DM4310
+          kp: 30.0
+          kd: 1.0
+        right_j7:         # DM4310
+          kp: 30.0
+          kd: 1.0
+        right_gripper:    # position-force
+          speed: 10.0
+          effort: 0.15
+
+      # Half of default's stiffness, damping unchanged: a leader arm or VR hand
+    #   can push the arm around, and the higher damping ratio that comes with
+    #   the softer spring keeps it from oscillating. openarm_can has no teleop
+    #   set of its own, so this is derived rather than copied.
+      teleop:
+        left_j1:          # DM8009
+          kp: 37.5
+          kd: 2.8
+        left_j2:          # DM8009
+          kp: 37.5
+          kd: 2.8
+        left_j3:          # DM4340
+          kp: 25.0
+          kd: 2.0
+        left_j4:          # DM4340
+          kp: 25.0
+          kd: 2.0
+        left_j5:          # DM4310
+          kp: 15.0
+          kd: 1.0
+        left_j6:          # DM4310
+          kp: 15.0
+          kd: 1.0
+        left_j7:          # DM4310
+          kp: 15.0
+          kd: 1.0
+        left_gripper:     # position-force
+          speed: 8.0
+          effort: 0.12
+        right_j1:         # DM8009
+          kp: 37.5
+          kd: 2.8
+        right_j2:         # DM8009
+          kp: 37.5
+          kd: 2.8
+        right_j3:         # DM4340
+          kp: 25.0
+          kd: 2.0
+        right_j4:         # DM4340
+          kp: 25.0
+          kd: 2.0
+        right_j5:         # DM4310
+          kp: 15.0
+          kd: 1.0
+        right_j6:         # DM4310
+          kp: 15.0
+          kd: 1.0
+        right_j7:         # DM4310
+          kp: 15.0
+          kd: 1.0
+        right_gripper:    # position-force
+          speed: 8.0
+          effort: 0.12
+
+      # ACT_INFERENCE_TO_CAN_GUIDE.md: the driver packs every joint of a replayed
+    #   chunk as MITParam(kp=20.0, kd=1.0).
+      act:
+        left_j1:          # DM8009
+          kp: 20.0
+          kd: 1.0
+        left_j2:          # DM8009
+          kp: 20.0
+          kd: 1.0
+        left_j3:          # DM4340
+          kp: 20.0
+          kd: 1.0
+        left_j4:          # DM4340
+          kp: 20.0
+          kd: 1.0
+        left_j5:          # DM4310
+          kp: 20.0
+          kd: 1.0
+        left_j6:          # DM4310
+          kp: 20.0
+          kd: 1.0
+        left_j7:          # DM4310
+          kp: 20.0
+          kd: 1.0
+        left_gripper:     # position-force
+          speed: 10.0
+          effort: 0.15
+        right_j1:         # DM8009
+          kp: 20.0
+          kd: 1.0
+        right_j2:         # DM8009
+          kp: 20.0
+          kd: 1.0
+        right_j3:         # DM4340
+          kp: 20.0
+          kd: 1.0
+        right_j4:         # DM4340
+          kp: 20.0
+          kd: 1.0
+        right_j5:         # DM4310
+          kp: 20.0
+          kd: 1.0
+        right_j6:         # DM4310
+          kp: 20.0
+          kd: 1.0
+        right_j7:         # DM4310
+          kp: 20.0
+          kd: 1.0
+        right_gripper:    # position-force
+          speed: 10.0
+          effort: 0.15
+
+      # Profile tối ưu cho ACT Inference: êm ái, dập tắt rung giật (cao damping kd) và đủ lực nâng (kp vai/khuỷu vừa đủ)
+      act_tuned:
+        left_j1:          # DM8009 Vai
+          kp: 65.0
+          kd: 3.6
+        left_j2:          # DM8009 Vai
+          kp: 65.0
+          kd: 3.6
+        left_j3:          # DM4340 Khuỷu
+          kp: 45.0
+          kd: 2.8
+        left_j4:          # DM4340 Khuỷu
+          kp: 45.0
+          kd: 2.8
+        left_j5:          # DM4310 Cổ tay
+          kp: 25.0
+          kd: 1.6
+        left_j6:          # DM4310 Cổ tay
+          kp: 25.0
+          kd: 1.6
+        left_j7:          # DM4310 Cổ tay
+          kp: 25.0
+          kd: 1.6
+        left_gripper:     # position-force
+          speed: 10.0
+          effort: 0.15
+        right_j1:         # DM8009 Vai
+          kp: 65.0
+          kd: 3.6
+        right_j2:         # DM8009 Vai
+          kp: 65.0
+          kd: 3.6
+        right_j3:         # DM4340 Khuỷu
+          kp: 45.0
+          kd: 2.8
+        right_j4:         # DM4340 Khuỷu
+          kp: 45.0
+          kd: 2.8
+        right_j5:         # DM4310 Cổ tay
+          kp: 25.0
+          kd: 1.6
+        right_j6:         # DM4310 Cổ tay
+          kp: 25.0
+          kd: 1.6
+        right_j7:         # DM4310 Cổ tay
+          kp: 25.0
+          kd: 1.6
+        right_gripper:    # position-force
+          speed: 10.0
+          effort: 0.15
+
+

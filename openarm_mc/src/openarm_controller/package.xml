@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>openarm_controller</name>
+  <version>0.1.0</version>
+  <description>CAN controller for OpenArm: subscribes joint commands, drives the Damiao motors at 400 Hz through a quintic smoother, publishes joint states at 100 Hz.</description>
+  <maintainer email="nguyentoan10601@gmail.com">nguyenton</maintainer>
+  <license>Apache-2.0</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
+
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

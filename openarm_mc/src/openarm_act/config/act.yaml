@@ -1,0 +1,128 @@
+# ACT policy inference. The observation settings must match the dataset the
+# model was trained on, which is what openarm_ui's recorder writes by default
+# and what act_pipeline trains on: 640x480 RGB-D, depth in mm, 50 Hz.
+#
+# checkpoint (and, for a bare export, stats_file) are launch arguments, not
+# set here: they change with every training run.
+
+/openarm_act:
+  ros__parameters:
+    # module:Class.
+    #   OnnxPolicy         an .onnx from `uv run utils/export_onnx.py`
+    #   ActPipelinePolicy  the training .pth, run by act_pipeline itself
+    #                      (needs torch and act_pipeline_path)
+    #   HoldPolicy         no model; predicts staying put, for the plumbing
+    policy: openarm_act.policy:OnnxPolicy
+    # auto takes cuda when onnxruntime-gpu (or torch) has it, else cpu.
+    device: auto
+    # Which ONNX input is which, when they are not called image and qpos:
+    #   input_names: "image=input_0,qpos=input_1"
+    input_names: ""
+    act_pipeline_path: ""
+    # CPU threads inference may use when it runs on the CPU; the rest stay
+    # free for the controller's 400 Hz loop. 0 lets the runtime take them all.
+    cpu_threads: 4
+    # The model's gripper unit. auto reads it off the stats: the recorder
+    # writes strokes in m, a dataset of motor angles holds rad.
+    gripper_unit: auto
+
+    # The recorder's defaults: 640x480 RGB, depth in mm clipped to 200..1200.
+    image_width: 640
+    image_height: 480
+    depth_scale: 0.001
+    depth_min_mm: 200
+    depth_max_mm: 1200
+
+    # Each camera the model reads (an ACT export: chest) is
+    # <camera_prefix>/<name>/{rgb,depth}, from openarm_camera.
+    camera_prefix: /openarm/camera
+    state_topic: /openarm/joint_states
+    left_gripper_topic: /openarm/left_gripper
+    right_gripper_topic: /openarm/right_gripper
+    output_prefix: /openarm/act
+    # Each inference's whole chunk, for the dashboard's trajectory arrow.
+    trajectory_topic: /openarm/trajectory
+
+    # One action per step at the dataset's rate; a new chunk as often as the
+    # model keeps up, ensembled as act_pipeline's TemporalEnsemblePolicy does.
+    control_rate: 50.0
+    query_period: 1
+    temporal_ensemble: true
+    # infer_robot --ensemble_m: w = exp(-m * age), the newest chunk heaviest.
+    ensemble_k: 0.01
+    ensemble_weighting: newest
+    # Continuous run (Start / Execute on the dashboard, running true):
+    #   async  the arm steps at control_rate on the ensembled chunks while
+    #          the model infers beside it -- infer_robot.py's behaviour at any
+    #          inference speed (one chunk a step on a GPU, a few a second on
+    #          a CPU, the arm still at the recorded speed)
+    #   sync   infer_robot.py's loop as written: observe, infer, ensemble,
+    #          smooth, one step; the arm moves as fast as the model infers
+    loop_mode: async
+    # infer_robot --vel_scale: its per-joint speed and acceleration limits
+    # (smoothing.py) scaled, 0.1 to 2.
+    vel_scale: 1.0
+    # A model trained on action = qpos (the recorder's) predicts a grasp as
+    # the object's width, which squeezes nothing. A predicted gripper stroke
+    # under gripper_close_below (m) is then commanded to gripper_close_to, as
+    # teleop closed it. Off here (0); openarm_smolvla turns it on at 0.035.
+    gripper_close_below: 0.0
+    gripper_close_to: 0.0
+    max_obs_age: 0.25
+    # With no camera (none plugged in, or no frame for max_obs_age): mock
+    # feeds a gray frame at 600 mm, as act_pipeline's infer_robot.py does,
+    # and says so in the status; off does not infer without one.
+    camera_fallback: mock
+
+    # Idle first: the model is loaded but infers nothing. The ~/generate
+    # service infers once (Generate trajectory on the dashboard); running
+    # true infers continuously.
+    running: false
+    # Not executing, joint_commands and the grippers still go out every step:
+    # with act selected on the proxy, the pose held once (no gravity
+    # compensation: re-sending the measured pose would let the arm sag);
+    # otherwise where the arm is held now (the controller's setpoint).
+    idle_output: true
+    proxy_node: /openarm_command_proxy
+    # Seconds a generated trajectory may wait to be run. 0 disables.
+    plan_max_age: 30.0
+    # What runs must be what was drawn: refuse when the arm has moved this
+    # far (rad, m on a gripper) since the trajectory was generated, or when
+    # its first step is this far from the arm -- the ease-in onto it is not
+    # drawn. 0 disables either.
+    plan_max_drift: 0.05
+    plan_max_start_jump: 0.15
+    # Preview first, always: the node starts in preview and only commands the
+    # arm after `mode: execute`, easing in over warmup_duration.
+    mode: preview
+    warmup_duration: 1.5
+    # Reset to zero (~/reset): where it takes the arm, in the dataset's joint
+    # order (left j1..j7, left gripper, right j1..j7, right gripper), and how
+    # fast its farthest joint may go on average, rad/s. Every arm joint at 0
+    # with the grippers open (43 mm, as the recorded episodes start): with
+    # them closed the policy reads the task as done and hardly moves.
+    reset_pose: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.043,
+                 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.043]
+    reset_speed: 0.5
+    warmup_threshold: 0.03
+    # Refuse execute when the prediction is this far from the arm (rad, or m
+    # on a gripper). 0 disables.
+    max_start_jump: 1.0
+    # A continuous run ends by itself as infer_robot.py's loop does, counted
+    # in steps: after execute_timeout (30 s = 1500 steps at 50 Hz; infer_robot
+    # --max_timesteps defaults to 1000), or
+    # once the command stays within stop_delta_rad of the arm with the arm
+    # within stop_home_dist of finish_pose for stop_duration (--stop_delta_rad,
+    # --stop_home_dist, --stop_duration) -- after the arm has left home.
+    # 0 disables either.
+    execute_timeout: 30.0
+    stop_delta_rad: 0.008
+    stop_home_dist: 0.15
+    stop_duration: 1.0
+    # Then it eases the arm to finish_pose (--safe_home_on_stop: every joint
+    # at 0, grippers closed) over finish_duration at least. Stop never does:
+    # it holds the arm where it is.
+    home_on_finish: true
+    finish_pose: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    finish_duration: 2.0

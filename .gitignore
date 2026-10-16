@@ -1,0 +1,76 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# C extensions
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Dataset files & directories (Don't commit massive datasets to git)
+dataset/
+data_set/
+*.h5
+*.hdf5
+*.zarr
+
+# Checkpoints & Model weights (Do not track heavy weight files)
+checkpoints/
+*.pth
+*.pt
+*.ckpt
+*.pkl
+*.onnx
+*.onnx.data
+
+# Training runs & logs
+runs/
+outputs/
+wandb/
+*.log
+*.jsonl
+
+# ROS 2 & Colcon Build Artifacts
+build/
+install/
+log/
+COLCON_IGNORE
+.pytest_cache/
+openarm_mc/build/
+openarm_mc/install/
+openarm_mc/log/
+openarm_mc/.pytest_cache/
+openarm_mc/checkpoint/*.onnx
+openarm_mc/dataset/*.hdf5
+openarm_mc/dataset/*.h5
+
+# IDE & OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+

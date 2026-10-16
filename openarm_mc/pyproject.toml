@@ -1,0 +1,44 @@
+[project]
+name = "openarm-mc-utils"
+version = "0.1.0"
+description = "Offline tools for openarm_mc (utils/), outside ROS"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    # utils/export_onnx.py: load an act_pipeline checkpoint, write the .onnx
+    # and check it with onnxruntime. act_pipeline itself imports h5py.
+    "numpy>=1.24,<2",
+    "torch>=2.0",
+    "torchvision>=0.15",
+    "onnx>=1.15",
+    "h5py>=3.8",
+    # openarm_smolvla's websocket protocol (msgpack with NumPy arrays). The
+    # node itself runs on the system Python: setup_env.sh --system installs
+    # it there too.
+    "msgpack>=1.0",
+]
+
+# onnxruntime, which checks the export, comes in two builds that install the
+# same `onnxruntime` module: pick one. utils/setup_env.sh picks for you --
+# gpu when an NVIDIA GPU answers, cpu otherwise:
+#   ./utils/setup_env.sh              (uv sync --extra gpu | --extra cpu)
+[project.optional-dependencies]
+cpu = ["onnxruntime>=1.17"]
+gpu = ["onnxruntime-gpu>=1.17"]
+
+[tool.uv]
+# Not an installable package: the ROS 2 nodes in src/ are built by colcon and
+# run on the system Python. This environment only runs the tools in utils/.
+package = false
+# The two onnxruntime builds cannot share an environment.
+conflicts = [[{ extra = "cpu" }, { extra = "gpu" }]]
+
+# The export runs on the CPU; the CPU wheels spare the multi-GB CUDA download.
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
